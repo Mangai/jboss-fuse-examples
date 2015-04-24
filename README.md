@@ -1,1 +1,2 @@
-# jboss-fuse-examples
+JBoss Fuse Examples
+========
