@@ -1,0 +1,4 @@
+SalesOrders
+SalesOrders('0500000000')
+SalesOrders('0500000000')/SalesOrderItems
+SalesOrders('0500000000')?$expand=SalesOrderItems

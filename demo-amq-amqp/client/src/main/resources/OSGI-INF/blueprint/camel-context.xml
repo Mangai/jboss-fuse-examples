@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:camel="http://camel.apache.org/schema/blueprint"
+	xmlns:cm="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.0.0"
+	xsi:schemaLocation="http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd 
+http://camel.apache.org/schema/blueprint http://camel.apache.org/schema/blueprint/camel-blueprint.xsd">
+
+	<!-- Properties Config -->
+	<cm:property-placeholder id="placeholder"
+		persistent-id="com.jboss.fuse.mb.demo" placeholder-prefix="$[" placeholder-suffix="]" />
+
+	<bean id="jmsConnectionFactory" class="org.apache.qpid.amqp_1_0.jms.impl.ConnectionFactoryImpl">
+		<argument type="java.lang.String" value="$[hostname]" />
+		<argument type="int" value="$[port]" />
+		<argument type="java.lang.String" value="$[userName]" />
+		<argument type="java.lang.String" value="$[password]" />
+	</bean>
+
+	<bean id="jms" class="org.apache.camel.component.jms.JmsComponent">
+		<property name="connectionFactory" ref="jmsConnectionFactory" />
+	</bean>
+
+	<camelContext xmlns="http://camel.apache.org/schema/blueprint">
+
+		<route id="AMQP-Publisher">
+			<from uri="timer://test?period=10000" />
+			<setBody>
+				<constant>Hello there!</constant>
+			</setBody>
+			<setHeader headerName="cheese">
+				<simple>123</simple>
+			</setHeader>
+			<log
+				message="About to send Message : ${body} with Cheese Header : ${header.cheese}" />
+			<to uri="jms:queue:demo.amqpCamelQueue" />
+		</route>
+
+		<route id="AMQP-Listener">
+			<from uri="jms:queue:demo.amqpCamelQueue" />
+			<log
+				message="Message received : ${body} with Cheese Header : ${header.cheese}" />
+		</route>
+
+	</camelContext>
+</blueprint>
+
+
+    

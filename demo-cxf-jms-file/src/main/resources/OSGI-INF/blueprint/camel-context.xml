@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:camel="http://camel.apache.org/schema/blueprint"
+	xmlns:jaxws="http://cxf.apache.org/blueprint/jaxws" xmlns:cxf="http://cxf.apache.org/blueprint/core"
+	xmlns:camelcxf="http://camel.apache.org/schema/blueprint/cxf"
+	xmlns:order="http://demo.fuse.jboss.com/order"
+	xmlns:cm="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.0.0"
+	xsi:schemaLocation="
+             http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd
+             http://camel.apache.org/schema/blueprint http://camel.apache.org/schema/blueprint/camel-blueprint.xsd
+             http://cxf.apache.org/blueprint/jaxws http://cxf.apache.org/schemas/blueprint/jaxws.xsd
+             http://cxf.apache.org/blueprint/core http://cxf.apache.org/schemas/blueprint/core.xsd">
+
+	<!-- Properties Config -->
+	<cm:property-placeholder id="placeholder"
+		persistent-id="com.jboss.fuse.demo" />
+
+	<!-- Beans -->
+	<bean id="customTransformer" class="com.jboss.fuse.demo.util.CustomTransformer" />
+	<bean id="customSOAPProcessor" class="com.jboss.fuse.demo.util.CustomSOAPProcessor" />
+
+
+	<!-- CXF Endpoints -->
+	<camelcxf:cxfEndpoint id="incomingOrders"
+		address="/demo-cxf-jms-file/ws/IncomingOrder" serviceClass="com.jboss.fuse.demo.ws.IncomingOrder">
+	</camelcxf:cxfEndpoint>
+
+	<!-- Camel Context -->
+	<camelContext id="demo-cxf-jms-file"
+		xmlns="http://camel.apache.org/schema/blueprint">
+		<route id="file-input-route">
+			<from uri="file:{{inputDir}}" />
+			<log message="Receiving order ${file:name}" />
+			<convertBodyTo type="java.lang.String" />
+			<unmarshal>
+				<jaxb contextPath="com.jboss.fuse.demo.jaxb" />
+			</unmarshal>
+			<to uri="direct:processorder" />
+		</route>
+		<route id="jms-input-route">
+			<from uri="amq:IS-1.4-IncomingOrders" />
+			<log message="Receiving order ${header.JMSMessageID}: ${body}" />
+			<unmarshal>
+				<jaxb contextPath="com.jboss.fuse.demo.jaxb" />
+			</unmarshal>
+			<to uri="direct:processorder" />
+		</route>
+		<route id="ws-input-route">
+			<from uri="cxf:bean:incomingOrders" />
+			<log message="WS Operation name: ${in.header.operationName}" />
+			<transform>
+				<simple>${body[0]}</simple>
+			</transform>
+			<to uri="bean:customSOAPProcessor?method=process" />
+			<log message="Receiving order ${body}" />
+			<setExchangePattern pattern="InOnly" />
+			<to uri="direct:processorder" />
+			<setBody>
+				<constant>OK</constant>
+			</setBody>
+		</route>
+		<route id="process-order-route">
+			<from uri="direct:processorder" />
+			<choice>
+				<when>
+					<xpath>//order:order/order:customer/order:country = 'UK'</xpath>
+					<log message="Sending order to the UK" />
+					<marshal>
+						<json library="Jackson" />
+					</marshal>
+					<convertBodyTo type="java.lang.String" />
+					<to uri="amq:IS-1.4-OutputUK" />
+				</when>
+				<when>
+					<xpath>//order:order/order:customer/order:country = 'US'</xpath>
+					<log message="Sending order to the US" />
+					<to uri="customTransformer" />
+					<marshal>
+						<json library="Jackson" />
+					</marshal>
+					<convertBodyTo type="java.lang.String" />
+					<to uri="amq:IS-1.4-OutputUS" />
+				</when>
+				<otherwise>
+					<log message="Sending order to another country" />
+					<convertBodyTo type="java.lang.String" />
+					<to uri="amq:IS-1.4-OutputOthers" />
+				</otherwise>
+			</choice>
+		</route>
+	</camelContext>
+</blueprint>

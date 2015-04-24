@@ -1,0 +1,40 @@
+<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://demo.fuse.jboss.com/order" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="order">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="customer">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element type="xs:string" name="name"/>
+              <xs:element type="xs:string" name="city"/>
+              <xs:element type="xs:string" name="country"/>
+            </xs:sequence>
+            <xs:attribute type="xs:string" name="id"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element type="xs:date" name="date"/>
+        <xs:element name="orderlines">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="orderline" maxOccurs="unbounded" minOccurs="0">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="article">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element type="xs:string" name="description"/>
+                        </xs:sequence>
+                        <xs:attribute type="xs:string" name="id" use="optional"/>
+                      </xs:complexType>
+                    </xs:element>
+                    <xs:element type="xs:byte" name="quantity"/>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

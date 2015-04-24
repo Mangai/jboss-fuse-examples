@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:camel="http://camel.apache.org/schema/blueprint"
+	xmlns:order="http://demo.fuse.jboss.com/order"
+	xmlns:cm="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.0.0"
+	xsi:schemaLocation="
+             http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd
+             http://camel.apache.org/schema/blueprint http://camel.apache.org/schema/blueprint/camel-blueprint.xsd">
+
+	<!-- Properties Config -->
+    <cm:property-placeholder id="placeholder" persistent-id="com.jboss.fuse.demo" />
+    
+    <!-- Beans -->
+    <bean id="orderProcessor" class="com.jboss.fuse.demo.OrderProcessor" />
+    
+    <!-- Tracer -->
+	<bean id="camelTracer" class="org.apache.camel.processor.interceptor.Tracer">
+	    <property name="traceExceptions" value="false"/>
+	    <property name="traceInterceptors" value="true"/>
+	    <property name="logLevel" value="INFO"/>
+	    <property name="logName" value="tracer"/>
+	</bean>
+	
+	<bean id="traceFormatter" class="org.apache.camel.processor.interceptor.DefaultTraceFormatter">
+		<property name="showBreadCrumb" value="true"/>	
+	    <property name="showBody" value="true"/>
+	    <property name="showOutBody" value="true"/>
+	    <property name="showBodyType" value="true"/>
+	    <property name="showException" value="true"/>
+	</bean>
+
+	<!-- Camel Context -->
+	<camelContext id="demo-errorhandling" trace="true" useBreadcrumb="true" xmlns="http://camel.apache.org/schema/blueprint">
+	
+ 	<errorHandler id="myErrorHandler" type="DeadLetterChannel" deadLetterUri="file:{{errorDir}}">
+        <redeliveryPolicy maximumRedeliveries="3" backOffMultiplier="2" useExponentialBackOff="true" redeliveryDelay="3000" 
+        				  retryAttemptedLogLevel="WARN" logRetryAttempted="true" logExhausted="true"  />
+    </errorHandler>
+    
+	<onException useOriginalMessage="true">
+	   <exception>com.jboss.fuse.demo.OutOfStockException</exception>
+	   <redeliveryPolicy maximumRedeliveries="1" />
+	   <handled>
+	   		<constant>true</constant>
+   	   </handled>
+	   <log message="Placing a supplier order for UK" />
+	   <convertBodyTo type="java.lang.String" />
+	   <to uri="amq:IS-1.5-SupplierOrder"/>
+	</onException>
+    
+    <route id="file-input-route" errorHandlerRef="myErrorHandler">
+        <from uri="file:{{inputDir}}?moveFailed={{inputDir}}/failed&amp;move={{inputDir}}/done"/>
+        <log message="Receiving order ${file:name}"/>
+        <choice>
+            <when>
+                <xpath>//order:order/order:customer/order:country = 'UK'</xpath>
+                <log message="Sending order ${file:name} to the UK"/>
+                <to uri="orderProcessor"/>
+                <to uri="file:{{outputDir}}/uk"/>
+            </when>
+            <when>
+                <xpath>//order:order/order:customer/order:country = 'US'</xpath>
+                <log message="Sending order ${file:name} to the US"/>
+                <to uri="orderProcessor"/>
+                <to uri="file:{{outputDir}}/us"/>
+            </when>
+            <otherwise>
+                <log message="Sending order ${file:name} to another country"/>
+                <to uri="file:{{outputDir}}/other"/>
+            </otherwise>
+        </choice>
+    </route>
+</camelContext>
+
+</blueprint>

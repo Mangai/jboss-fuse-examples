@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:camel="http://camel.apache.org/schema/blueprint"
+	xmlns:order="http://demo.fuse.jboss.com/order"
+	xmlns:cm="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.0.0"
+	xsi:schemaLocation="
+             http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd
+             http://camel.apache.org/schema/blueprint http://camel.apache.org/schema/blueprint/camel-blueprint.xsd">
+
+	<!-- Properties Config -->
+	<cm:property-placeholder id="placeholder" persistent-id="com.jboss.fuse.demo" />
+
+	<!-- Camel Context -->
+	<camelContext id="demo-sap-netweaver"
+		xmlns="http://camel.apache.org/schema/blueprint">
+
+		<route id="orders-route">
+			<from uri="amq:IS-1.8-SAPCommand" />
+			<log message="SAP command: ${body}" />
+			<setHeader headerName="CamelNetWeaverCommand">
+				<simple>in.body</simple>
+			</setHeader>
+			<to
+				uri="sap-netweaver:{{netweaverUrl}}?username={{netweaverUsername}}&amp;password={{netweaverPwd}}&amp;json=false" />
+			<to uri="log:sapResponse" />
+			<log message="SAP response: ${body}" />
+			<to uri="amq:IS-1.8-SAPReply" />
+		</route>
+	</camelContext>
+</blueprint>
